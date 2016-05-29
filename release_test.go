@@ -12,8 +12,8 @@ func TestReleaseValidator_ValidateArchitectures(t *testing.T) {
 	}{
 		{nil, false},
 		{[]string{}, false},
-		{[]string{"unsupportedArch", Architectures[0]}, false},
-		{[]string{Architectures[0], Architectures[1]}, true},
+		{[]string{"unsupportedArch", architectures[0]}, false},
+		{[]string{architectures[0], architectures[1]}, true},
 	}
 	for i, v := range tests {
 		rv := &ReleaseValidator{Release: &Release{Architectures: v.archs}}
@@ -103,5 +103,19 @@ func TestReleaseValidator_ValidateDate(t *testing.T) {
 }
 
 func TestReleaseValidator_ValidateValidUntil(t *testing.T) {
-	panic("Not Implemented")
+	t.Skip("Not Implemented")
+	tests := []struct {
+		time  *time.Time
+		valid bool
+	}{
+		{nil, false},
+	}
+	for i, v := range tests {
+		rv := &ReleaseValidator{Release: &Release{}}
+		rv.ValidUntil = v.time
+		rv.validateValidUntil()
+		if expected, actual := v.valid, rv.err != nil; expected != actual {
+			t.Fatalf("test(%v): expected=%v actual=%v", i, expected, actual)
+		}
+	}
 }

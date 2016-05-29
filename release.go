@@ -62,8 +62,8 @@ func (rv *ReleaseValidator) validateArchitectures() {
 	}
 	for _, v := range rv.Architectures {
 		valid := false
-		for i := 0; i < len(Architectures); i++ {
-			if v == Architectures[i] {
+		for i := 0; i < len(architectures); i++ {
+			if v == architectures[i] {
 				valid = true
 				break
 			}
