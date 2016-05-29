@@ -23,12 +23,12 @@ func main() {
 
 // Architectures is a list of supported repository architecture types.
 // See https://www.debian.org/doc/debian-policy/ch-customized-programs.html
-var Architectures = [...]string{
+var architectures = [...]string{
 `
 	for _, a := range archs {
-        if len(a) > 0 {
-		    output += fmt.Sprintf("    \"%s\",\n", a)
-        }
+		if len(a) > 0 {
+			output += fmt.Sprintf("    \"%s\",\n", a)
+		}
 	}
 	output += "}"
 	if err := ioutil.WriteFile("architectures.go", []byte(output), 0644); err != nil {
