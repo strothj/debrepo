@@ -5,6 +5,27 @@ import (
 	"time"
 )
 
+func TestReleaseValidator_ValidateComponents(t *testing.T) {
+	tests := []struct {
+		components []string
+		valid      bool
+	}{
+		{nil, false},
+		{[]string{}, false},
+		{[]string{""}, false},
+		{[]string{"main"}, true},
+		{[]string{"main", ""}, false},
+		{[]string{"main", "contrib"}, true},
+	}
+	for i, v := range tests {
+		rv := &releaseValidator{Release: &Release{Components: v.components}}
+		rv.validateComponents()
+		if expected, actual := v.valid, rv.err == nil; expected != actual {
+			t.Fatalf("test(%v): expected=%v actual=%v", i, expected, actual)
+		}
+	}
+}
+
 func TestReleaseValidator_ValidateArchitectures(t *testing.T) {
 	tests := []struct {
 		archs []string
@@ -44,6 +65,7 @@ func TestReleaseValidator_ValidateNoSupportForArchitectureAll(t *testing.T) {
 
 func TestReleaseValidator_ValidateOptionalSingleLineFields(t *testing.T) {
 	tests := []func(r *Release) *string{
+		func(r *Release) *string { return &r.Description },
 		func(r *Release) *string { return &r.Origin },
 		func(r *Release) *string { return &r.Label },
 	}

@@ -28,7 +28,7 @@ type Release struct {
 
 	// These fields determine the layout of the repository and should contain
 	// something meaningful to the user.
-	Components    string
+	Components    []string
 	Architectures []string
 
 	// These fields are purely functional and used mostly internally by
@@ -57,6 +57,7 @@ type releaseValidator struct {
 
 // Validate returns an error if field validation fails.
 func (rv *releaseValidator) validate() error {
+	rv.validateComponents()
 	rv.validateArchitectures()
 	rv.validateNoSupportForArchitectureAll()
 	rv.validateOptionalSingleLineFields()
@@ -65,6 +66,17 @@ func (rv *releaseValidator) validate() error {
 	rv.validateValidUntil()
 	rv.validateFileSums()
 	return rv.err
+}
+
+func (rv *releaseValidator) validateComponents() {
+	if len(rv.Components) == 0 {
+		rv.err = errors.New("field components empty")
+	}
+	for _, v := range rv.Components {
+		if len(v) == 0 {
+			rv.err = errors.New("empty component")
+		}
+	}
 }
 
 func (rv *releaseValidator) validateArchitectures() {
@@ -96,6 +108,7 @@ func (rv *releaseValidator) validateNoSupportForArchitectureAll() {
 }
 
 func (rv *releaseValidator) validateOptionalSingleLineFields() {
+	rv.validateSingleLineOrEmpty("Description", rv.Description)
 	rv.validateSingleLineOrEmpty("Origin", rv.Origin)
 	rv.validateSingleLineOrEmpty("Label", rv.Label)
 }
