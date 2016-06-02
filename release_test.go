@@ -103,18 +103,19 @@ func TestReleaseValidator_ValidateDate(t *testing.T) {
 }
 
 func TestReleaseValidator_ValidateValidUntil(t *testing.T) {
-	t.Skip("Not Implemented")
 	tests := []struct {
-		time  *time.Time
+		time  time.Time
 		valid bool
 	}{
-		{nil, false},
+		{time.Time{}, true}, // optional field, empty time means unset
+		{time.Now().Add(-30 * time.Minute), false},
+		{time.Now().Add(30 * time.Minute), true},
 	}
 	for i, v := range tests {
 		rv := &ReleaseValidator{Release: &Release{}}
 		rv.ValidUntil = v.time
 		rv.validateValidUntil()
-		if expected, actual := v.valid, rv.err != nil; expected != actual {
+		if expected, actual := v.valid, rv.err == nil; expected != actual {
 			t.Fatalf("test(%v): expected=%v actual=%v", i, expected, actual)
 		}
 	}

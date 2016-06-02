@@ -35,8 +35,9 @@ type Release struct {
 	Date time.Time
 	// ValidUntil is an optional field which specifies at which time the Release
 	// file should be considered expired by the client. Client behaviour on
-	// expired Release files is unspecified.
-	ValidUntil *time.Time
+	// expired Release files is unspecified. An empty Time means no expiration
+	// time was set.
+	ValidUntil time.Time
 	MD5Sum     map[string]MD5FileMetaData
 	SHA1       map[string]SHA1FileMetaData
 	SHA256     map[string]SHA256FileMetaData
@@ -55,6 +56,7 @@ func (rv *ReleaseValidator) Validate() error {
 	rv.validateOptionalSingleLineFields()
 	rv.validateOptionalSingleWordFields()
 	rv.validateDate()
+	rv.validateValidUntil()
 	return rv.err
 }
 
@@ -117,7 +119,13 @@ func (rv *ReleaseValidator) validateDate() {
 }
 
 func (rv *ReleaseValidator) validateValidUntil() {
-	panic("Not Implemented")
+	if rv.ValidUntil.IsZero() {
+		return
+	}
+	if time.Now().After(rv.ValidUntil) {
+		rv.err = errors.New("release file is expired")
+	}
+	return
 }
 
 // MD5FileMetaData stores the MD5 sum and file length of a file in a repository
