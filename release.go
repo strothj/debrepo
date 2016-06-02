@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -43,24 +44,30 @@ type Release struct {
 	SHA256     map[string]SHA256FileMetaData
 }
 
+// Validate validates the field values in Release.
+func (r *Release) Validate() error {
+	return (&releaseValidator{Release: r}).validate()
+}
+
 // ReleaseValidator validates field values in a Release.
-type ReleaseValidator struct {
+type releaseValidator struct {
 	*Release
 	err error
 }
 
 // Validate returns an error if field validation fails.
-func (rv *ReleaseValidator) Validate() error {
+func (rv *releaseValidator) validate() error {
 	rv.validateArchitectures()
 	rv.validateNoSupportForArchitectureAll()
 	rv.validateOptionalSingleLineFields()
 	rv.validateOptionalSingleWordFields()
 	rv.validateDate()
 	rv.validateValidUntil()
+	rv.validateFileSums()
 	return rv.err
 }
 
-func (rv *ReleaseValidator) validateArchitectures() {
+func (rv *releaseValidator) validateArchitectures() {
 	if rv.Architectures == nil || len(rv.Architectures) == 0 {
 		rv.err = errors.New("field Architectures empty")
 		return
@@ -81,51 +88,74 @@ func (rv *ReleaseValidator) validateArchitectures() {
 	return
 }
 
-func (rv *ReleaseValidator) validateNoSupportForArchitectureAll() {
+func (rv *releaseValidator) validateNoSupportForArchitectureAll() {
 	if rv.NoSupportForArchitectureAll != "" &&
 		rv.NoSupportForArchitectureAll != "Packages" {
 		rv.err = errors.New("invalid value for NoSupportForArchitectureAll")
 	}
 }
 
-func (rv *ReleaseValidator) validateOptionalSingleLineFields() {
+func (rv *releaseValidator) validateOptionalSingleLineFields() {
 	rv.validateSingleLineOrEmpty("Origin", rv.Origin)
 	rv.validateSingleLineOrEmpty("Label", rv.Label)
 }
 
-func (rv *ReleaseValidator) validateOptionalSingleWordFields() {
+func (rv *releaseValidator) validateOptionalSingleWordFields() {
 	rv.validateSingleWordOrEmpty("Suite", rv.Suite)
 	rv.validateSingleWordOrEmpty("Codename", rv.Codename)
 	rv.validateSingleWordOrEmpty("Version", rv.Version)
 }
 
-func (rv *ReleaseValidator) validateSingleLineOrEmpty(field, str string) {
+func (rv *releaseValidator) validateSingleLineOrEmpty(field, str string) {
 	if strings.Index(str, "\n") != -1 {
 		rv.err = fmt.Errorf("field %s can not contain multiple lines", field)
 	}
 }
 
-func (rv *ReleaseValidator) validateSingleWordOrEmpty(field, str string) {
+func (rv *releaseValidator) validateSingleWordOrEmpty(field, str string) {
 	if strings.Index(str, "\n") != -1 ||
 		strings.Index(str, " ") != -1 {
 		rv.err = fmt.Errorf("field %s can contain only a single word", field)
 	}
 }
 
-func (rv *ReleaseValidator) validateDate() {
+func (rv *releaseValidator) validateDate() {
 	if rv.Date.IsZero() {
 		rv.err = errors.New("field date can not be empty")
 	}
 }
 
-func (rv *ReleaseValidator) validateValidUntil() {
+func (rv *releaseValidator) validateValidUntil() {
 	if rv.ValidUntil.IsZero() {
 		return
 	}
 	if time.Now().After(rv.ValidUntil) {
 		rv.err = errors.New("release file is expired")
 	}
-	return
+}
+
+func (rv *releaseValidator) validateFileSums() {
+	if len(rv.MD5Sum) == 0 &&
+		len(rv.SHA1) == 0 &&
+		len(rv.SHA256) == 0 {
+		rv.err = errors.New("no files in release file")
+		return
+	}
+	validateNotZeroLength := func(fileSums interface{}) {
+		if fileSums == nil {
+			return
+		}
+		keys := reflect.ValueOf(fileSums).MapKeys()
+		for _, k := range keys {
+			if len(k.String()) == 0 {
+				rv.err = errors.New("empty filename in release file")
+				return
+			}
+		}
+	}
+	validateNotZeroLength(rv.MD5Sum)
+	validateNotZeroLength(rv.SHA1)
+	validateNotZeroLength(rv.SHA256)
 }
 
 // MD5FileMetaData stores the MD5 sum and file length of a file in a repository
