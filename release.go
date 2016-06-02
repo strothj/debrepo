@@ -1,6 +1,9 @@
 package debrepo
 
 import (
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
@@ -34,9 +37,9 @@ type Release struct {
 	// file should be considered expired by the client. Client behaviour on
 	// expired Release files is unspecified.
 	ValidUntil *time.Time
-	MD5Sum     string
-	SHA1       string
-	SHA256     string
+	MD5Sum     map[string]MD5FileMetaData
+	SHA1       map[string]SHA1FileMetaData
+	SHA256     map[string]SHA256FileMetaData
 }
 
 // ReleaseValidator validates field values in a Release.
@@ -115,4 +118,25 @@ func (rv *ReleaseValidator) validateDate() {
 
 func (rv *ReleaseValidator) validateValidUntil() {
 	panic("Not Implemented")
+}
+
+// MD5FileMetaData stores the MD5 sum and file length of a file in a repository
+// Release file.
+type MD5FileMetaData struct {
+	Length int64
+	Sum    [md5.Size]byte
+}
+
+// SHA1FileMetaData stores the SHA1 sum and file length of a file in a
+// repository Release file.
+type SHA1FileMetaData struct {
+	Length int64
+	Sum    [sha1.Size]byte
+}
+
+// SHA256FileMetaData stores the SHA256 sum and file length of a file in a
+// repository Release file.
+type SHA256FileMetaData struct {
+	Length int64
+	Sum    [sha256.Size]byte
 }
