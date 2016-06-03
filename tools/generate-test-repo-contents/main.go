@@ -11,7 +11,7 @@ var (
 	fileMode = os.FileMode(0644)
 
 	directories = []string{
-		"testdata/repo/root/debian/dists/jessie",
+		"testdata/repo/root/debian/dists/jessie/main/binary-amd64",
 	}
 
 	files = []struct {
@@ -20,6 +20,8 @@ var (
 	}{
 		{"http://ftp.debian.org/debian/dists/jessie/Release", "testdata/repo/root/debian/dists/jessie/Release"},
 		{"http://ftp.debian.org/debian/dists/jessie/Release.gpg", "testdata/repo/root/debian/dists/jessie/Release.gpg"},
+		{"http://ftp.debian.org/debian/dists/jessie/main/binary-amd64/Packages.gz", "testdata/repo/root/debian/dists/jessie/main/binary-amd64/Packages.gz"},
+		{"http://ftp.debian.org/debian/dists/jessie/main/binary-amd64/Packages.xz", "testdata/repo/root/debian/dists/jessie/main/binary-amd64/Packages.xz"},
 	}
 )
 
