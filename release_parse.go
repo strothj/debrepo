@@ -2,6 +2,7 @@ package debrepo
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -10,6 +11,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -95,6 +97,30 @@ func ReadRelease(r io.Reader) (release *Release, err error) {
 	return release, nil
 }
 
+// Serialize saves a Release to a file.
+func (r *Release) Serialize(out io.Writer) error {
+	buf := &bytes.Buffer{}
+	err := releaseTemplate.Execute(buf, r)
+	if err != nil {
+		return err
+	}
+	scanner := bufio.NewScanner(buf)
+	w := bufio.NewWriter(out)
+	for scanner.Scan() {
+		line := strings.TrimRight(scanner.Text(), " ")
+		if len(line) == 0 {
+			continue
+		}
+		if _, err := w.WriteString(fmt.Sprintf("%s\n", line)); err != nil {
+			return err
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	return scanner.Err()
+}
+
 func parseFileSumParams(words []string) (sum string, length int64, path string) {
 	var parsed int
 	for _, w := range words {
@@ -127,3 +153,63 @@ func parseDate(value string) time.Time {
 	}
 	return date
 }
+
+const releaseTemplateStr = `{{with .Origin}}Origin: {{.}}{{end}}
+{{with .Label}}Label: {{.}}{{end}}
+{{with .Suite}}Suite: {{.}}{{end}}
+{{with .Version}}Version: {{.}}{{end}}
+{{with .Codename}}Codename: {{.}}{{end}}
+{{with .Date}}Date: {{date .}}{{end}}
+{{with .Architectures}}Architectures: {{range .}}{{.}} {{end}}{{end}}
+{{with .Components}}Components: {{range .}}{{.}} {{end}}{{end}}
+{{with .Description}}Description: {{.}}{{end}}
+{{with .NoSupportForArchitectureAll}}No-Support-for-Architecture-all: {{.}}{{end}}
+{{validUntil .ValidUntil}}
+{{with .MD5Sum -}}
+MD5Sum:
+{{range $key, $value := .}} {{printf "%s %8d %s" (hex16 .Sum) .Length $key}}
+{{end}}
+{{- end -}}
+{{with .SHA1 -}}
+SHA1:
+{{range $key, $value := .}} {{printf "%s %8d %s" (hex20 .Sum) .Length $key}}
+{{end}}
+{{- end -}}
+{{with .SHA256 -}}
+SHA256:
+{{range $key, $value := .}} {{printf "%s %8d %s" (hex32 .Sum) .Length $key}}
+{{end}}
+{{- end -}}
+`
+
+var releaseTemplateFuncs = template.FuncMap{
+	"date": func(t time.Time) string {
+		if t.IsZero() {
+			return time.Now().Format(time.RFC1123)
+		}
+		return t.Format(time.RFC1123)
+	},
+	"validUntil": func(t time.Time) string {
+		if t.IsZero() {
+			return ""
+		}
+		return "Valid-Until: " + t.Format(time.RFC1123)
+	},
+	"hex16": func(b [md5.Size]byte) string {
+		bb := make([]byte, 16)
+		copy(bb, b[:])
+		return hex.EncodeToString(bb)
+	},
+	"hex20": func(b [sha1.Size]byte) string {
+		bb := make([]byte, sha1.Size)
+		copy(bb, b[:])
+		return hex.EncodeToString(bb)
+	},
+	"hex32": func(b [sha256.Size]byte) string {
+		bb := make([]byte, sha256.Size)
+		copy(bb, b[:])
+		return hex.EncodeToString(bb)
+	},
+}
+
+var releaseTemplate = template.Must(template.New("").Funcs(releaseTemplateFuncs).Parse(releaseTemplateStr))
