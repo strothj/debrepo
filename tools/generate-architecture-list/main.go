@@ -31,7 +31,7 @@ var architectures = [...]string{
 		}
 	}
 	output += "}"
-	if err := ioutil.WriteFile("architectures.go", []byte(output), 0644); err != nil {
+	if err := ioutil.WriteFile("architectures_gen.go", []byte(output), 0644); err != nil {
 		panic(err)
 	}
 
