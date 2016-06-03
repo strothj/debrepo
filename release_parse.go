@@ -7,6 +7,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -25,9 +26,10 @@ func ReadRelease(r io.Reader) (release *Release, err error) {
 	}()
 	scanner := bufio.NewScanner(r)
 	release = &Release{
-		MD5Sum: make(map[string]MD5FileMetaData),
-		SHA1:   make(map[string]SHA1FileMetaData),
-		SHA256: make(map[string]SHA256FileMetaData),
+		MD5Sum:   make(map[string]MD5FileMetaData),
+		SHA1:     make(map[string]SHA1FileMetaData),
+		SHA256:   make(map[string]SHA256FileMetaData),
+		SignedBy: make([][20]byte, 0),
 	}
 
 	var fileSum string
@@ -85,6 +87,28 @@ func ReadRelease(r io.Reader) (release *Release, err error) {
 				var bb [sha256.Size]byte
 				copy(bb[:], b)
 				release.SHA256[path] = SHA256FileMetaData{Length: length, Sum: bb}
+			}
+		case "NotAutomatic:":
+			release.NotAutomatic = parseOptionalBool(words[1], "NotAutomatic")
+		case "ButAutomaticUpgrades:":
+			release.ButAutomaticUpgrades = parseOptionalBool(words[1], "ButAutomaticUpgrades")
+		case "Acquire-By-Hash:":
+			release.AcquireByHash = parseOptionalBool(words[1], "Acquire-By-Hash")
+		case "Signed-By:":
+			fingerprintLine := strings.Join(words[1:], "")
+			fingerprints := strings.Split(fingerprintLine, ",")
+			for _, f := range fingerprints {
+				f = strings.TrimSpace(f)
+				b, err := hex.DecodeString(f)
+				if err != nil {
+					return nil, err
+				}
+				if len(b) != 20 {
+					return nil, errors.New("invalid fingerprint in Signed-By")
+				}
+				var bb [20]byte
+				copy(bb[:], b)
+				release.SignedBy = append(release.SignedBy, bb)
 			}
 		}
 	}
@@ -154,6 +178,15 @@ func parseDate(value string) time.Time {
 	return date
 }
 
+func parseOptionalBool(word, field string) bool {
+	if word == "yes" {
+		return true
+	} else if word == "no" {
+		return false
+	}
+	panic(fmt.Errorf("invalid value for %s", field))
+}
+
 const releaseTemplateStr = `{{with .Origin}}Origin: {{.}}{{end}}
 {{with .Label}}Label: {{.}}{{end}}
 {{with .Suite}}Suite: {{.}}{{end}}
@@ -165,6 +198,10 @@ const releaseTemplateStr = `{{with .Origin}}Origin: {{.}}{{end}}
 {{with .Description}}Description: {{.}}{{end}}
 {{with .NoSupportForArchitectureAll}}No-Support-for-Architecture-all: {{.}}{{end}}
 {{validUntil .ValidUntil}}
+{{with .NotAutomatic}}NotAutomatic: {{.}}{{end}}
+{{with .ButAutomaticUpgrades}}ButAutomaticUpgrades: {{.}}{{end}}
+{{with .AcquireByHash}}Acquire-By-Hash: {{.}}{{end}}
+{{signedBy .SignedBy}}
 {{with .MD5Sum -}}
 MD5Sum:
 {{range $key, $value := .}} {{printf "%s %8d %s" (hex16 .Sum) .Length $key}}
@@ -194,6 +231,16 @@ var releaseTemplateFuncs = template.FuncMap{
 			return ""
 		}
 		return "Valid-Until: " + t.Format(time.RFC1123)
+	},
+	"signedBy": func(signers [][20]byte) string {
+		if len(signers) == 0 {
+			return ""
+		}
+		strSigners := make([]string, 0, len(signers))
+		for _, v := range signers {
+			strSigners = append(strSigners, hex.EncodeToString(v[:]))
+		}
+		return "Signed-By: " + strings.Join(strSigners, ",")
 	},
 	"hex16": func(b [md5.Size]byte) string {
 		bb := make([]byte, 16)

@@ -165,3 +165,22 @@ func TestReleaseValidator_ValidateFileSums(t *testing.T) {
 		}
 	}
 }
+
+func TestReleaseValidator_ValidateAutomatic(t *testing.T) {
+	tests := []struct {
+		release *Release
+		valid   bool
+	}{
+		{&Release{}, true},
+		{&Release{NotAutomatic: true}, true},
+		{&Release{NotAutomatic: true, ButAutomaticUpgrades: true}, true},
+		{&Release{ButAutomaticUpgrades: true}, false},
+	}
+	for i, v := range tests {
+		rv := &releaseValidator{Release: v.release}
+		rv.validateAutomatic()
+		if expected, actual := v.valid, rv.err == nil; expected != actual {
+			t.Fatalf("test(%v): expected=%v actual=%v", i, expected, actual)
+		}
+	}
+}

@@ -42,6 +42,48 @@ type Release struct {
 	MD5Sum     map[string]MD5FileMetaData
 	SHA1       map[string]SHA1FileMetaData
 	SHA256     map[string]SHA256FileMetaData
+
+	// The NotAutomatic and ButAutomaticUpgrades fields are optional boolean
+	// fields instructing the package manager. They may contain the values "yes"
+	// and "no" (true or false). If one the fields is not specified, this has
+	// the same meaning as a value of "no".
+	//
+	// If a value of "yes" is specified for the NotAutomatic field, a package
+	// manager should not install packages (or upgrade to newer versions) from
+	// this repository without explicit user consent (APT assigns priority 1 to
+	// this) If the field ButAutomaticUpgrades is specified as well and has the
+	// value "yes", the package manager should automatically install package
+	// upgrades from this repository, if the installed version of the package is
+	// higher than the version of the package in other sources (APT assigns
+	// priority 100).
+	//
+	// Specifying "yes" for ButAutomaticUpgrades without specifying "yes" for
+	// NotAutomatic is invalid.
+	NotAutomatic         bool
+	ButAutomaticUpgrades bool
+
+	// An optional boolean field with the default value "no" (false). A value of
+	// "yes" (true) indicates that the server supports the optional "by-hash"
+	// locations as an alternative to the canonical location (and name) of an
+	// index file. A client is free to choose which locations it will try to get
+	// indexes from, but it is recommend to use the "by-hash" location if
+	// supported by the server for its benefits for servers and clients. A
+	// client may fallback to the canonical location if by-hash fails.
+	AcquireByHash bool
+
+	// An optional field containing a comma separated list of GPG key
+	// fingerprints to be used for validating the next Release file.
+	// The fingerprints must consist only of hex digits and may not contain
+	// spaces.
+	//
+	// If the field is present, a client should only accept updates to the
+	// repository that are signed with keys listed in the field.
+	//
+	// Compatibility: This feature is introduced in APT 1.3. APT
+	// (as of 2016-05-01/2e49f51) requires the concrete key used to sign the
+	// repository to be listed, that is, if a subkey is used, the subkey
+	// fingerprint must be listed in the field.
+	SignedBy [][20]byte
 }
 
 // Validate validates the field values in Release.
@@ -65,6 +107,7 @@ func (rv *releaseValidator) validate() error {
 	rv.validateDate()
 	rv.validateValidUntil()
 	rv.validateFileSums()
+	rv.validateAutomatic()
 	return rv.err
 }
 
@@ -169,6 +212,12 @@ func (rv *releaseValidator) validateFileSums() {
 	validateNotZeroLength(rv.MD5Sum)
 	validateNotZeroLength(rv.SHA1)
 	validateNotZeroLength(rv.SHA256)
+}
+
+func (rv *releaseValidator) validateAutomatic() {
+	if !rv.NotAutomatic && rv.ButAutomaticUpgrades {
+		rv.err = errors.New("can not set ButAutomaticUpgrades without NotAutomatic")
+	}
 }
 
 // MD5FileMetaData stores the MD5 sum and file length of a file in a repository
